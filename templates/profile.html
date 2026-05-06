@@ -63,6 +63,62 @@
       </div>
       {% endif %}
 
+      <!-- Брони на мои квартиры (арендодатель) -->
+      {% if user.role in ('landlord', 'admin') and incoming_bookings %}
+      <div class="card p-4 mb-4">
+        <h5 class="fw-bold mb-3"><i class="bi bi-inbox me-2"></i>Входящие бронирования</h5>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Квартира</th>
+                <th>Арендатор</th>
+                <th>Заезд</th>
+                <th>Выезд</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for b in incoming_bookings %}
+              <tr>
+                <td><a href="/apartments/{{ b.apartment_id }}" class="text-decoration-none">{{ b.apt_title }}</a></td>
+                <td class="text-muted small">ID {{ b.tenant_id }}</td>
+                <td>{{ b.check_in }}</td>
+                <td>{{ b.check_out }}</td>
+                <td class="fw-semibold">{{ b.total_price|int }} ₽</td>
+                <td>
+                  {% if b.status == 'pending' %}<span class="badge bg-warning text-dark">Ожидает</span>
+                  {% elif b.status == 'confirmed' %}<span class="badge bg-success">Подтверждено</span>
+                  {% elif b.status == 'cancelled' %}<span class="badge bg-secondary">Отменено</span>
+                  {% elif b.status == 'completed' %}<span class="badge bg-primary">Завершено</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="d-flex gap-1 flex-wrap">
+                    {% if b.status == 'pending' %}
+                    <form method="post" action="/bookings/{{ b.id }}/confirm">
+                      <button class="btn btn-success btn-sm">Подтвердить</button>
+                    </form>
+                    <form method="post" action="/bookings/{{ b.id }}/cancel-landlord">
+                      <button class="btn btn-outline-danger btn-sm">Отклонить</button>
+                    </form>
+                    {% elif b.status == 'confirmed' %}
+                    <form method="post" action="/bookings/{{ b.id }}/complete">
+                      <button class="btn btn-primary btn-sm">Завершить</button>
+                    </form>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Мои брони -->
       <div class="card p-4">
         <h5 class="fw-bold mb-3"><i class="bi bi-calendar-check me-2"></i>Мои бронирования</h5>

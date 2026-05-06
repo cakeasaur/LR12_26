@@ -301,6 +301,54 @@ def cancel_booking(
     return RedirectResponse("/profile", status_code=302)
 
 
+@router.post("/bookings/{booking_id}/confirm")
+def confirm_booking(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    booking = booking_service.get_booking(db, booking_id)
+    if booking:
+        apt = apartment_service.get_apartment(db, booking.apartment_id)
+        if apt and apt.owner_id == user.id:
+            booking_service.update_booking_status(db, booking, BookingStatus.confirmed)
+    return RedirectResponse("/profile", status_code=302)
+
+
+@router.post("/bookings/{booking_id}/complete")
+def complete_booking(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    booking = booking_service.get_booking(db, booking_id)
+    if booking:
+        apt = apartment_service.get_apartment(db, booking.apartment_id)
+        if apt and apt.owner_id == user.id:
+            booking_service.update_booking_status(db, booking, BookingStatus.completed)
+    return RedirectResponse("/profile", status_code=302)
+
+
+@router.post("/bookings/{booking_id}/cancel-landlord")
+def cancel_booking_landlord(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    booking = booking_service.get_booking(db, booking_id)
+    if booking:
+        apt = apartment_service.get_apartment(db, booking.apartment_id)
+        if apt and apt.owner_id == user.id:
+            booking_service.update_booking_status(db, booking, BookingStatus.cancelled)
+    return RedirectResponse("/profile", status_code=302)
+
+
 # ---------- Профиль ----------
 
 @router.get("/profile", response_class=HTMLResponse)
@@ -313,11 +361,21 @@ def profile(
         return RedirectResponse("/login", status_code=302)
     bookings = booking_service.get_user_bookings(db, tenant_id=user.id)
     apartments = []
+    incoming_bookings = []
     if user.role in (UserRole.landlord, UserRole.admin):
         from app.models.apartment import Apartment
+        from app.models.booking import Booking
         apartments = db.query(Apartment).filter(Apartment.owner_id == user.id).all()
+        apt_ids = [a.id for a in apartments]
+        apt_titles = {a.id: a.title for a in apartments}
+        if apt_ids:
+            raw = db.query(Booking).filter(Booking.apartment_id.in_(apt_ids)).all()
+            for b in raw:
+                b.apt_title = apt_titles.get(b.apartment_id, f"№{b.apartment_id}")
+            incoming_bookings = raw
     return templates.TemplateResponse(request, "profile.html", {
         "user": user,
         "bookings": bookings,
         "apartments": apartments,
+        "incoming_bookings": incoming_bookings,
     })
