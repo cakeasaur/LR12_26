@@ -174,9 +174,15 @@ def apartment_detail(
         return RedirectResponse("/", status_code=302)
     reviews = review_service.get_apartment_reviews(db, apartment_id)
     is_owner = user and user.id == apt.owner_id
+    can_review = (
+        user and not is_owner
+        and review_service.has_completed_booking(db, user.id, apartment_id)
+        and not any(r.author_id == user.id for r in reviews)
+    )
     return templates.TemplateResponse(request, "apartment.html", {
         "apt": apt, "user": user,
         "reviews": reviews, "is_owner": is_owner,
+        "can_review": can_review,
     })
 
 
@@ -217,6 +223,27 @@ def edit_apartment_submit(
         is_active=is_active == "on",
     )
     apartment_service.update_apartment(db, apt, data)
+    return RedirectResponse(f"/apartments/{apartment_id}", status_code=302)
+
+
+# ---------- Отзывы ----------
+
+@router.post("/reviews")
+def create_review_web(
+    apartment_id: int = Form(...),
+    rating: int = Form(...),
+    comment: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    from app.schemas.review import ReviewCreate
+    try:
+        data = ReviewCreate(apartment_id=apartment_id, rating=rating, comment=comment)
+        review_service.create_review(db, data, author_id=user.id)
+    except Exception:
+        pass
     return RedirectResponse(f"/apartments/{apartment_id}", status_code=302)
 
 

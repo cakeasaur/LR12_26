@@ -61,6 +61,26 @@
         {% else %}
           <p class="text-muted"><i class="bi bi-chat-square me-1"></i>Отзывов пока нет</p>
         {% endif %}
+
+        {% if can_review %}
+        <hr>
+        <h6 class="fw-bold"><i class="bi bi-pencil-square me-2"></i>Оставить отзыв</h6>
+        <form method="post" action="/reviews">
+          <input type="hidden" name="apartment_id" value="{{ apt.id }}">
+          <div class="mb-2">
+            <div class="d-flex gap-1" id="starRating">
+              {% for i in range(1, 6) %}
+              <input type="radio" class="btn-check" name="rating" id="star{{ i }}" value="{{ i }}" required>
+              <label class="btn btn-outline-warning btn-sm px-2" for="star{{ i }}">{{ i }}★</label>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="mb-2">
+            <textarea name="comment" class="form-control form-control-sm" rows="3" placeholder="Ваш отзыв..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-warning btn-sm w-100">Отправить отзыв</button>
+        </form>
+        {% endif %}
       </div>
     </div>
 
