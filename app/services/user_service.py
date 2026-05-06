@@ -30,6 +30,8 @@ def create_user(db: Session, data: UserCreate) -> User:
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     user = get_user_by_email(db, email)
-    if not user or not verify_password(password, user.hashed_password):
+    # ❌ Было: не проверялся флаг is_active — заблокированный пользователь мог войти.
+    # ✅ Исправлено: добавлена проверка user.is_active.
+    if not user or not user.is_active or not verify_password(password, user.hashed_password):
         return None
     return user
