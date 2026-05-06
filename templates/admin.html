@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Админ-панель — RentEase{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <span class="badge bg-danger fs-6 px-3 py-2"><i class="bi bi-shield-fill me-1"></i>Администратор</span>
+    <h3 class="fw-bold mb-0">Панель управления</h3>
+  </div>
+
+  <!-- Статистика -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card p-3 text-center border-0" style="background:#fff0f3">
+        <div class="fw-bold" style="font-size:2rem; color:#e94560">{{ stats.users }}</div>
+        <div class="text-muted small">Пользователей</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3 text-center border-0" style="background:#f0fff4">
+        <div class="fw-bold" style="font-size:2rem; color:#198754">{{ stats.apartments }}</div>
+        <div class="text-muted small">Объявлений</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3 text-center border-0" style="background:#fff8f0">
+        <div class="fw-bold" style="font-size:2rem; color:#fd7e14">{{ stats.bookings }}</div>
+        <div class="text-muted small">Бронирований</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card p-3 text-center border-0" style="background:#f0f4ff">
+        <div class="fw-bold" style="font-size:2rem; color:#0d6efd">{{ stats.payments }}</div>
+        <div class="text-muted small">Платежей</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Пользователи -->
+  <div class="card p-4">
+    <h5 class="fw-bold mb-3"><i class="bi bi-people me-2"></i>Пользователи</h5>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Имя</th>
+            <th>Email</th>
+            <th>Телефон</th>
+            <th>Роль</th>
+            <th>Статус</th>
+            <th>Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="{% if not u.is_active %}table-secondary{% endif %}">
+            <td class="text-muted">#{{ u.id }}</td>
+            <td class="fw-semibold">{{ u.full_name }}</td>
+            <td>{{ u.email }}</td>
+            <td class="text-muted small">{{ u.phone or '—' }}</td>
+            <td>
+              {% if u.role == 'admin' %}<span class="badge bg-danger">Админ</span>
+              {% elif u.role == 'landlord' %}<span class="badge bg-warning text-dark">Арендодатель</span>
+              {% else %}<span class="badge bg-primary">Арендатор</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}<span class="badge bg-success">Активен</span>
+              {% else %}<span class="badge bg-secondary">Заблокирован</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.id != current_user.id %}
+                {% if u.is_active %}
+                <form method="post" action="/admin/users/{{ u.id }}/deactivate">
+                  <button class="btn btn-outline-danger btn-sm">Заблокировать</button>
+                </form>
+                {% else %}
+                <form method="post" action="/admin/users/{{ u.id }}/activate">
+                  <button class="btn btn-outline-success btn-sm">Активировать</button>
+                </form>
+                {% endif %}
+              {% else %}
+                <span class="text-muted small">это вы</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

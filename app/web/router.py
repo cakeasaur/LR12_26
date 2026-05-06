@@ -421,3 +421,62 @@ def profile(
         "incoming_bookings": incoming_bookings,
         "paid_booking_ids": paid_booking_ids,
     })
+
+
+# ---------- Админ-панель ----------
+
+@router.get("/admin", response_class=HTMLResponse)
+def admin_panel(
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user or user.role != UserRole.admin:
+        return RedirectResponse("/", status_code=302)
+    from app.models.user import User as UserModel
+    from app.models.apartment import Apartment
+    from app.models.booking import Booking
+    from app.models.payment import Payment
+    users = db.query(UserModel).all()
+    stats = {
+        "users": db.query(UserModel).count(),
+        "apartments": db.query(Apartment).count(),
+        "bookings": db.query(Booking).count(),
+        "payments": db.query(Payment).count(),
+    }
+    return templates.TemplateResponse(request, "admin.html", {
+        "user": user, "current_user": user,
+        "users": users, "stats": stats,
+    })
+
+
+@router.post("/admin/users/{user_id}/deactivate")
+def deactivate_user_web(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user or user.role != UserRole.admin:
+        return RedirectResponse("/", status_code=302)
+    from app.models.user import User as UserModel
+    target = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if target and target.id != user.id:
+        target.is_active = False
+        db.commit()
+    return RedirectResponse("/admin", status_code=302)
+
+
+@router.post("/admin/users/{user_id}/activate")
+def activate_user_web(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user or user.role != UserRole.admin:
+        return RedirectResponse("/", status_code=302)
+    from app.models.user import User as UserModel
+    target = db.query(UserModel).filter(UserModel.id == user_id).first()
+    if target:
+        target.is_active = True
+        db.commit()
+    return RedirectResponse("/admin", status_code=302)
