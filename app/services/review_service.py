@@ -15,7 +15,19 @@ def has_completed_booking(db: Session, user_id: int, apartment_id: int) -> bool:
     ).first() is not None
 
 
+def has_existing_review(db: Session, author_id: int, apartment_id: int) -> bool:
+    return db.query(Review).filter(
+        Review.author_id == author_id,
+        Review.apartment_id == apartment_id,
+    ).first() is not None
+
+
 def create_review(db: Session, data: ReviewCreate, author_id: int) -> Review:
+    # ❌ Было: не проверялось наличие отзыва — один пользователь мог оставить
+    #    несколько отзывов на одну квартиру через API.
+    # ✅ Исправлено: добавлена проверка дубликата на уровне сервиса.
+    if has_existing_review(db, author_id, data.apartment_id):
+        raise ValueError("Вы уже оставили отзыв на эту квартиру")
     review = Review(
         apartment_id=data.apartment_id,
         author_id=author_id,
