@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{% if apt %}Редактировать{% else %}Новое объявление{% endif %} — RentEase{% endblock %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 640px">
+  <div class="card p-4 p-md-5">
+    <h3 class="fw-bold mb-4">
+      <i class="bi bi-house-add me-2" style="color:#e94560"></i>
+      {% if apt %}Редактировать объявление{% else %}Сдать квартиру{% endif %}
+    </h3>
+
+    {% if error %}
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{% if apt %}/apartments/{{ apt.id }}/edit{% else %}/apartments/new{% endif %}">
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Заголовок объявления</label>
+        <input type="text" name="title" class="form-control" placeholder="Уютная студия в центре" required value="{{ apt.title if apt else '' }}">
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">Адрес</label>
+          <input type="text" name="address" class="form-control" placeholder="ул. Ленина, 10, кв. 5" required value="{{ apt.address if apt else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Город</label>
+          <input type="text" name="city" class="form-control" placeholder="Москва" required value="{{ apt.city if apt else '' }}">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Описание</label>
+        <textarea name="description" class="form-control" rows="3" placeholder="Расскажите о квартире...">{{ apt.description if apt else '' }}</textarea>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Цена за ночь (₽)</label>
+          <input type="number" name="price_per_night" class="form-control" min="1" required value="{{ apt.price_per_night|int if apt else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Комнат</label>
+          <input type="number" name="rooms" class="form-control" min="1" required value="{{ apt.rooms if apt else '1' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Макс. гостей</label>
+          <input type="number" name="max_guests" class="form-control" min="1" required value="{{ apt.max_guests if apt else '2' }}">
+        </div>
+      </div>
+      {% if apt %}
+      <div class="mb-3">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="is_active" id="isActive" {% if apt.is_active %}checked{% endif %}>
+          <label class="form-check-label fw-semibold" for="isActive">Объявление активно</label>
+        </div>
+      </div>
+      {% endif %}
+      <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold">
+          <i class="bi bi-check-lg me-1"></i>{% if apt %}Сохранить{% else %}Опубликовать{% endif %}
+        </button>
+        <a href="/profile" class="btn btn-outline-secondary px-4 py-2">Отмена</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ apt.title }} — RentEase{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="/" class="text-decoration-none">Главная</a></li>
+      <li class="breadcrumb-item active">{{ apt.title }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4">
+    <!-- Основная информация -->
+    <div class="col-lg-8">
+      <div class="card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+          <div>
+            <h2 class="fw-bold mb-1">{{ apt.title }}</h2>
+            <p class="text-muted mb-0"><i class="bi bi-geo-alt me-1"></i>{{ apt.address }}, {{ apt.city }}</p>
+          </div>
+          {% if is_owner %}
+          <a href="/apartments/{{ apt.id }}/edit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i>Редактировать</a>
+          {% endif %}
+        </div>
+
+        <div class="d-flex gap-3 mb-4">
+          <span class="badge bg-light text-dark border fs-6 px-3 py-2"><i class="bi bi-door-open me-1"></i>{{ apt.rooms }} комн.</span>
+          <span class="badge bg-light text-dark border fs-6 px-3 py-2"><i class="bi bi-people me-1"></i>до {{ apt.max_guests }} гостей</span>
+          {% if apt.is_active %}
+          <span class="badge bg-success fs-6 px-3 py-2"><i class="bi bi-check-circle me-1"></i>Доступно</span>
+          {% else %}
+          <span class="badge bg-secondary fs-6 px-3 py-2">Недоступно</span>
+          {% endif %}
+        </div>
+
+        {% if apt.description %}
+        <h5 class="fw-semibold">Описание</h5>
+        <p class="text-muted">{{ apt.description }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Отзывы -->
+      <div class="card p-4">
+        <h5 class="fw-bold mb-3"><i class="bi bi-star-fill me-2" style="color:#f4c430"></i>Отзывы
+          {% if reviews %}<span class="badge bg-light text-dark ms-2">{{ reviews|length }}</span>{% endif %}
+        </h5>
+        {% if reviews %}
+          {% for r in reviews %}
+          <div class="border-bottom pb-3 mb-3">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <div>
+                {% for i in range(r.rating) %}<i class="bi bi-star-fill text-warning"></i>{% endfor %}
+                {% for i in range(5 - r.rating) %}<i class="bi bi-star text-warning"></i>{% endfor %}
+              </div>
+              <span class="text-muted small">Гость #{{ r.author_id }}</span>
+            </div>
+            {% if r.comment %}<p class="mb-0">{{ r.comment }}</p>{% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted"><i class="bi bi-chat-square me-1"></i>Отзывов пока нет</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Форма бронирования -->
+    <div class="col-lg-4">
+      <div class="card p-4 sticky-top" style="top: 80px">
+        <div class="mb-3">
+          <span class="price-tag">{{ apt.price_per_night|int }} ₽</span>
+          <span class="text-muted"> / ночь</span>
+        </div>
+
+        {% if user and not is_owner %}
+        <form method="post" action="/bookings" id="bookingForm">
+          <input type="hidden" name="apartment_id" value="{{ apt.id }}">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Заезд</label>
+            <input type="date" name="check_in" class="form-control" required id="checkIn">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Выезд</label>
+            <input type="date" name="check_out" class="form-control" required id="checkOut">
+          </div>
+          <div class="alert alert-light border d-none" id="priceCalc">
+            <div class="d-flex justify-content-between">
+              <span class="text-muted">{{ apt.price_per_night|int }} ₽ × <span id="nights">0</span> ночей</span>
+              <strong id="totalPrice">0 ₽</strong>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 py-2">
+            <i class="bi bi-calendar-check me-2"></i>Забронировать
+          </button>
+        </form>
+        {% elif not user %}
+        <div class="text-center py-3">
+          <p class="text-muted mb-3">Войдите, чтобы забронировать</p>
+          <a href="/login" class="btn btn-primary w-100">Войти</a>
+          <a href="/register" class="btn btn-outline-secondary w-100 mt-2">Регистрация</a>
+        </div>
+        {% else %}
+        <div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Это ваше объявление</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const pricePerNight = {{ apt.price_per_night }};
+  const checkIn = document.getElementById('checkIn');
+  const checkOut = document.getElementById('checkOut');
+  const today = new Date().toISOString().split('T')[0];
+  if (checkIn) checkIn.min = today;
+
+  function calcPrice() {
+    if (!checkIn || !checkOut || !checkIn.value || !checkOut.value) return;
+    const d1 = new Date(checkIn.value), d2 = new Date(checkOut.value);
+    const nights = Math.round((d2 - d1) / 86400000);
+    if (nights > 0) {
+      document.getElementById('nights').textContent = nights;
+      document.getElementById('totalPrice').textContent = (nights * pricePerNight).toLocaleString('ru') + ' ₽';
+      document.getElementById('priceCalc').classList.remove('d-none');
+    } else {
+      document.getElementById('priceCalc').classList.add('d-none');
+    }
+  }
+  if (checkIn) { checkIn.addEventListener('change', calcPrice); checkOut.addEventListener('change', calcPrice); }
+</script>
+{% endblock %}

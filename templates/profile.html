@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Профиль — RentEase{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row g-4">
+    <!-- Профиль -->
+    <div class="col-lg-3">
+      <div class="card p-4 text-center">
+        <div class="mb-3">
+          <div class="rounded-circle bg-light d-inline-flex align-items-center justify-content-center" style="width:80px;height:80px">
+            <i class="bi bi-person-fill" style="font-size:2.5rem; color:#e94560"></i>
+          </div>
+        </div>
+        <h5 class="fw-bold mb-0">{{ user.full_name }}</h5>
+        <p class="text-muted small mb-2">{{ user.email }}</p>
+        {% if user.phone %}<p class="text-muted small mb-2"><i class="bi bi-telephone me-1"></i>{{ user.phone }}</p>{% endif %}
+        <span class="badge
+          {% if user.role == 'admin' %}bg-danger
+          {% elif user.role == 'landlord' %}bg-warning text-dark
+          {% else %}bg-primary
+          {% endif %} mb-3">
+          {% if user.role == 'admin' %}Администратор
+          {% elif user.role == 'landlord' %}Арендодатель
+          {% else %}Арендатор{% endif %}
+        </span>
+        <a href="/logout" class="btn btn-outline-secondary btn-sm w-100">
+          <i class="bi bi-box-arrow-right me-1"></i>Выйти
+        </a>
+      </div>
+    </div>
+
+    <!-- Контент -->
+    <div class="col-lg-9">
+      {% if user.role in ('landlord', 'admin') %}
+      <!-- Мои объявления -->
+      <div class="card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="fw-bold mb-0"><i class="bi bi-house-door me-2"></i>Мои объявления</h5>
+          <a href="/apartments/new" class="btn btn-primary btn-sm"><i class="bi bi-plus me-1"></i>Добавить</a>
+        </div>
+        {% if apartments %}
+          <div class="row g-3">
+            {% for apt in apartments %}
+            <div class="col-md-6">
+              <div class="card border p-3">
+                <div class="d-flex justify-content-between">
+                  <h6 class="fw-semibold mb-1">{{ apt.title }}</h6>
+                  {% if apt.is_active %}<span class="badge bg-success">Активно</span>{% else %}<span class="badge bg-secondary">Скрыто</span>{% endif %}
+                </div>
+                <p class="text-muted small mb-2"><i class="bi bi-geo-alt me-1"></i>{{ apt.city }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                  <span style="color:#e94560; font-weight:700">{{ apt.price_per_night|int }} ₽/ночь</span>
+                  <a href="/apartments/{{ apt.id }}" class="btn btn-outline-secondary btn-sm">Открыть</a>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted"><i class="bi bi-house-slash me-1"></i>Объявлений пока нет</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Мои брони -->
+      <div class="card p-4">
+        <h5 class="fw-bold mb-3"><i class="bi bi-calendar-check me-2"></i>Мои бронирования</h5>
+        {% if bookings %}
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Квартира</th>
+                  <th>Заезд</th>
+                  <th>Выезд</th>
+                  <th>Сумма</th>
+                  <th>Статус</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for b in bookings %}
+                <tr>
+                  <td><a href="/apartments/{{ b.apartment_id }}" class="text-decoration-none">№{{ b.apartment_id }}</a></td>
+                  <td>{{ b.check_in }}</td>
+                  <td>{{ b.check_out }}</td>
+                  <td class="fw-semibold">{{ b.total_price|int }} ₽</td>
+                  <td>
+                    {% if b.status == 'pending' %}<span class="badge bg-warning text-dark">Ожидает</span>
+                    {% elif b.status == 'confirmed' %}<span class="badge bg-success">Подтверждено</span>
+                    {% elif b.status == 'cancelled' %}<span class="badge bg-secondary">Отменено</span>
+                    {% elif b.status == 'completed' %}<span class="badge bg-primary">Завершено</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if b.status in ('pending', 'confirmed') %}
+                    <form method="post" action="/bookings/{{ b.id }}/cancel">
+                      <button type="submit" class="btn btn-outline-danger btn-sm">Отменить</button>
+                    </form>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted"><i class="bi bi-calendar-x me-1"></i>Бронирований пока нет</p>
+          <a href="/" class="btn btn-primary btn-sm">Найти жильё</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
