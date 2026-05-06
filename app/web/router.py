@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Form, Request, Response
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -45,8 +45,7 @@ def index(
     apartments = apartment_service.get_apartments(
         db, city=city, min_price=min_price, max_price=max_price, limit=50
     )
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "apartments": apartments,
         "user": user,
         "filters": {"city": city, "min_price": min_price, "max_price": max_price},
@@ -59,7 +58,7 @@ def index(
 def login_page(request: Request, user=Depends(get_current_user_from_cookie)):
     if user:
         return RedirectResponse("/profile", status_code=302)
-    return templates.TemplateResponse("login.html", {"request": request, "user": None})
+    return templates.TemplateResponse(request, "login.html", {"user": None})
 
 
 @router.post("/login")
@@ -71,8 +70,8 @@ def login_submit(
 ):
     user = user_service.authenticate_user(db, email, password)
     if not user:
-        return templates.TemplateResponse("login.html", {
-            "request": request, "user": None,
+        return templates.TemplateResponse(request, "login.html", {
+            "user": None,
             "error": "Неверный email или пароль",
         })
     token = create_access_token(data={"sub": user.id})
@@ -85,7 +84,7 @@ def login_submit(
 def register_page(request: Request, user=Depends(get_current_user_from_cookie)):
     if user:
         return RedirectResponse("/profile", status_code=302)
-    return templates.TemplateResponse("register.html", {"request": request, "user": None})
+    return templates.TemplateResponse(request, "register.html", {"user": None})
 
 
 @router.post("/register")
@@ -99,8 +98,8 @@ def register_submit(
     db: Session = Depends(get_db),
 ):
     if user_service.get_user_by_email(db, email):
-        return templates.TemplateResponse("register.html", {
-            "request": request, "user": None,
+        return templates.TemplateResponse(request, "register.html", {
+            "user": None,
             "error": "Email уже зарегистрирован",
         })
     try:
@@ -110,8 +109,8 @@ def register_submit(
         )
         user = user_service.create_user(db, data)
     except Exception as e:
-        return templates.TemplateResponse("register.html", {
-            "request": request, "user": None, "error": str(e),
+        return templates.TemplateResponse(request, "register.html", {
+            "user": None, "error": str(e),
         })
     token = create_access_token(data={"sub": user.id})
     resp = RedirectResponse("/", status_code=302)
@@ -129,10 +128,10 @@ def logout():
 # ---------- Квартиры ----------
 
 @router.get("/apartments/new", response_class=HTMLResponse)
-def new_apartment_page(request: Request, db: Session = Depends(get_db), user=Depends(get_current_user_from_cookie)):
+def new_apartment_page(request: Request, user=Depends(get_current_user_from_cookie)):
     if not user or user.role not in (UserRole.landlord, UserRole.admin):
         return RedirectResponse("/login", status_code=302)
-    return templates.TemplateResponse("apartment_form.html", {"request": request, "user": user, "apt": None})
+    return templates.TemplateResponse(request, "apartment_form.html", {"user": user, "apt": None})
 
 
 @router.post("/apartments/new")
@@ -157,8 +156,8 @@ def new_apartment_submit(
         )
         apt = apartment_service.create_apartment(db, data, owner_id=user.id)
     except Exception as e:
-        return templates.TemplateResponse("apartment_form.html", {
-            "request": request, "user": user, "apt": None, "error": str(e),
+        return templates.TemplateResponse(request, "apartment_form.html", {
+            "user": user, "apt": None, "error": str(e),
         })
     return RedirectResponse(f"/apartments/{apt.id}", status_code=302)
 
@@ -175,8 +174,8 @@ def apartment_detail(
         return RedirectResponse("/", status_code=302)
     reviews = review_service.get_apartment_reviews(db, apartment_id)
     is_owner = user and user.id == apt.owner_id
-    return templates.TemplateResponse("apartment.html", {
-        "request": request, "apt": apt, "user": user,
+    return templates.TemplateResponse(request, "apartment.html", {
+        "apt": apt, "user": user,
         "reviews": reviews, "is_owner": is_owner,
     })
 
@@ -191,7 +190,7 @@ def edit_apartment_page(
     apt = apartment_service.get_apartment(db, apartment_id)
     if not apt or not user or (user.id != apt.owner_id and user.role != UserRole.admin):
         return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("apartment_form.html", {"request": request, "user": user, "apt": apt})
+    return templates.TemplateResponse(request, "apartment_form.html", {"user": user, "apt": apt})
 
 
 @router.post("/apartments/{apartment_id}/edit")
@@ -244,8 +243,8 @@ def create_booking(
         if not booking_service.check_availability(db, apartment_id, data.check_in, data.check_out):
             apt = apartment_service.get_apartment(db, apartment_id)
             reviews = review_service.get_apartment_reviews(db, apartment_id)
-            return templates.TemplateResponse("apartment.html", {
-                "request": request, "apt": apt, "user": user,
+            return templates.TemplateResponse(request, "apartment.html", {
+                "apt": apt, "user": user,
                 "reviews": reviews, "is_owner": False,
                 "flash": {"type": "danger", "message": "Квартира недоступна на выбранные даты"},
             })
@@ -253,8 +252,8 @@ def create_booking(
     except Exception as e:
         apt = apartment_service.get_apartment(db, apartment_id)
         reviews = review_service.get_apartment_reviews(db, apartment_id)
-        return templates.TemplateResponse("apartment.html", {
-            "request": request, "apt": apt, "user": user,
+        return templates.TemplateResponse(request, "apartment.html", {
+            "apt": apt, "user": user,
             "reviews": reviews, "is_owner": False,
             "flash": {"type": "danger", "message": str(e)},
         })
@@ -290,7 +289,8 @@ def profile(
     if user.role in (UserRole.landlord, UserRole.admin):
         from app.models.apartment import Apartment
         apartments = db.query(Apartment).filter(Apartment.owner_id == user.id).all()
-    return templates.TemplateResponse("profile.html", {
-        "request": request, "user": user,
-        "bookings": bookings, "apartments": apartments,
+    return templates.TemplateResponse(request, "profile.html", {
+        "user": user,
+        "bookings": bookings,
+        "apartments": apartments,
     })
