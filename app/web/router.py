@@ -12,7 +12,7 @@ from app.schemas.apartment import ApartmentCreate, ApartmentUpdate
 from app.schemas.booking import BookingCreate
 from app.schemas.user import UserCreate
 from app.services import (
-    apartment_service, booking_service, review_service, user_service,
+    apartment_service, booking_service, payment_service, review_service, user_service,
 )
 
 templates = Jinja2Templates(directory="templates")
@@ -226,6 +226,43 @@ def edit_apartment_submit(
     return RedirectResponse(f"/apartments/{apartment_id}", status_code=302)
 
 
+# ---------- Оплата ----------
+
+@router.post("/payments/pay/{booking_id}")
+def pay_booking_web(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    booking = booking_service.get_booking(db, booking_id)
+    if booking and booking.tenant_id == user.id:
+        if not payment_service.get_payment_by_booking(db, booking_id):
+            from app.schemas.payment import PaymentCreate
+            payment_service.create_payment(
+                db, PaymentCreate(booking_id=booking_id), amount=booking.total_price
+            )
+            booking_service.update_booking_status(db, booking, BookingStatus.confirmed)
+    return RedirectResponse("/profile", status_code=302)
+
+
+@router.post("/payments/refund/{booking_id}")
+def refund_booking_web(
+    booking_id: int,
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user_from_cookie),
+):
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    booking = booking_service.get_booking(db, booking_id)
+    if booking and booking.tenant_id == user.id:
+        payment = payment_service.get_payment_by_booking(db, booking_id)
+        if payment:
+            payment_service.refund_payment(db, payment)
+    return RedirectResponse("/profile", status_code=302)
+
+
 # ---------- Отзывы ----------
 
 @router.post("/reviews")
@@ -373,9 +410,14 @@ def profile(
             for b in raw:
                 b.apt_title = apt_titles.get(b.apartment_id, f"№{b.apartment_id}")
             incoming_bookings = raw
+    paid_booking_ids = {
+        b.id for b in bookings
+        if payment_service.get_payment_by_booking(db, b.id)
+    }
     return templates.TemplateResponse(request, "profile.html", {
         "user": user,
         "bookings": bookings,
         "apartments": apartments,
         "incoming_bookings": incoming_bookings,
+        "paid_booking_ids": paid_booking_ids,
     })

@@ -150,11 +150,23 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if b.status in ('pending', 'confirmed') %}
-                    <form method="post" action="/bookings/{{ b.id }}/cancel">
-                      <button type="submit" class="btn btn-outline-danger btn-sm">Отменить</button>
-                    </form>
-                    {% endif %}
+                    <div class="d-flex gap-1 flex-wrap">
+                      {% if b.status == 'pending' and b.id not in paid_booking_ids %}
+                      <form method="post" action="/payments/pay/{{ b.id }}">
+                        <button type="submit" class="btn btn-success btn-sm">Оплатить</button>
+                      </form>
+                      {% endif %}
+                      {% if b.status == 'cancelled' and b.id in paid_booking_ids %}
+                      <form method="post" action="/payments/refund/{{ b.id }}">
+                        <button type="submit" class="btn btn-outline-warning btn-sm">Возврат</button>
+                      </form>
+                      {% endif %}
+                      {% if b.status in ('pending', 'confirmed') %}
+                      <form method="post" action="/bookings/{{ b.id }}/cancel">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Отменить</button>
+                      </form>
+                      {% endif %}
+                    </div>
                   </td>
                 </tr>
                 {% endfor %}
