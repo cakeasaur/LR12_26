@@ -1,0 +1,63 @@
+from datetime import date
+from typing import List, Optional
+from sqlalchemy.orm import Session
+
+from app.models.booking import Booking, BookingStatus
+from app.models.apartment import Apartment
+from app.schemas.booking import BookingCreate
+
+
+def check_availability(
+    db: Session, apartment_id: int, check_in: date, check_out: date,
+    exclude_booking_id: Optional[int] = None,
+) -> bool:
+    """Проверяет, нет ли пересечений с существующими бронями."""
+    query = db.query(Booking).filter(
+        Booking.apartment_id == apartment_id,
+        Booking.status.in_([BookingStatus.pending, BookingStatus.confirmed]),
+        Booking.check_in < check_out,
+        Booking.check_out > check_in,
+    )
+    if exclude_booking_id:
+        query = query.filter(Booking.id != exclude_booking_id)
+    return query.first() is None
+
+
+def create_booking(db: Session, data: BookingCreate, tenant_id: int) -> Booking:
+    apartment = db.query(Apartment).filter(Apartment.id == data.apartment_id).first()
+    nights = (data.check_out - data.check_in).days
+    total_price = apartment.price_per_night * nights
+
+    booking = Booking(
+        apartment_id=data.apartment_id,
+        tenant_id=tenant_id,
+        check_in=data.check_in,
+        check_out=data.check_out,
+        total_price=total_price,
+        status=BookingStatus.pending,
+    )
+    db.add(booking)
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
+def get_booking(db: Session, booking_id: int) -> Optional[Booking]:
+    return db.query(Booking).filter(Booking.id == booking_id).first()
+
+
+def get_user_bookings(db: Session, tenant_id: int) -> List[Booking]:
+    return db.query(Booking).filter(Booking.tenant_id == tenant_id).all()
+
+
+def get_apartment_bookings(db: Session, apartment_id: int) -> List[Booking]:
+    return db.query(Booking).filter(Booking.apartment_id == apartment_id).all()
+
+
+def update_booking_status(
+    db: Session, booking: Booking, status: BookingStatus
+) -> Booking:
+    booking.status = status
+    db.commit()
+    db.refresh(booking)
+    return booking
