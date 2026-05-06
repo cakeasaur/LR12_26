@@ -28,7 +28,7 @@ def get_current_user_from_cookie(request: Request, db: Session = Depends(get_db)
     payload = decode_access_token(token)
     if not payload:
         return None
-    return user_service.get_user_by_id(db, user_id=payload.get("sub"))
+    return user_service.get_user_by_id(db, user_id=int(payload.get("sub")))
 
 
 # ---------- Главная ----------
@@ -74,7 +74,7 @@ def login_submit(
             "user": None,
             "error": "Неверный email или пароль",
         })
-    token = create_access_token(data={"sub": user.id})
+    token = create_access_token(data={"sub": str(user.id)})
     resp = RedirectResponse("/", status_code=302)
     resp.set_cookie(COOKIE_NAME, token, httponly=True, max_age=3600 * 24)
     return resp
@@ -112,7 +112,7 @@ def register_submit(
         return templates.TemplateResponse(request, "register.html", {
             "user": None, "error": str(e),
         })
-    token = create_access_token(data={"sub": user.id})
+    token = create_access_token(data={"sub": str(user.id)})
     resp = RedirectResponse("/", status_code=302)
     resp.set_cookie(COOKIE_NAME, token, httponly=True, max_age=3600 * 24)
     return resp

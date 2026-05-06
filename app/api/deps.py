@@ -21,7 +21,7 @@ def get_current_user(
             detail="Недействительный токен",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_user_by_id(db, user_id=payload.get("sub"))
+    user = get_user_by_id(db, user_id=int(payload.get("sub")))
     if not user or not user.is_active:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     return user
