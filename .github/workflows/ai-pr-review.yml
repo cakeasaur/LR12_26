@@ -21,32 +21,35 @@ jobs:
 
       - name: Получить diff PR
         id: diff
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          git fetch origin ${{ github.base_ref }}
-          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD --stat)
-          FULL_DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.py' '*.html' '*.yml' '*.json' '*.md' | head -c 12000)
-          echo "stat<<EOF" >> $GITHUB_OUTPUT
-          echo "$DIFF" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "full<<EOF" >> $GITHUB_OUTPUT
-          echo "$FULL_DIFF" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          git fetch origin "$BASE_REF"
+          DIFF=$(git diff "origin/$BASE_REF...HEAD" --stat)
+          FULL_DIFF=$(git diff "origin/$BASE_REF...HEAD" -- '*.py' '*.html' '*.yml' '*.json' '*.md' | head -c 12000)
+          {
+            echo "stat<<DIFF_EOF"
+            echo "$DIFF"
+            echo "DIFF_EOF"
+            echo "full<<DIFF_EOF"
+            echo "$FULL_DIFF"
+            echo "DIFF_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Запросить описание у Claude
         id: ai_review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          DIFF_STAT: ${{ steps.diff.outputs.stat }}
+          FULL_DIFF: ${{ steps.diff.outputs.full }}
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
-          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
-          DIFF_STAT="${{ steps.diff.outputs.stat }}"
-          FULL_DIFF="${{ steps.diff.outputs.full }}"
-
           PAYLOAD=$(jq -n \
-            --arg title "$PR_TITLE" \
+            --arg title  "$PR_TITLE" \
             --arg author "$PR_AUTHOR" \
-            --arg stat "$DIFF_STAT" \
-            --arg diff "$FULL_DIFF" \
+            --arg stat   "$DIFF_STAT" \
+            --arg diff   "$FULL_DIFF" \
             '{
               model: "claude-3-5-haiku-20241022",
               max_tokens: 1024,
@@ -64,15 +67,19 @@ jobs:
 
           AI_TEXT=$(echo "$RESPONSE" | jq -r '.content[0].text // "Не удалось получить описание от AI."')
 
-          echo "review<<EOF" >> $GITHUB_OUTPUT
-          echo "$AI_TEXT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "review<<REVIEW_EOF"
+            echo "$AI_TEXT"
+            echo "REVIEW_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Оставить комментарий к PR
         uses: actions/github-script@v7
+        env:
+          AI_REVIEW: ${{ steps.ai_review.outputs.review }}
         with:
           script: |
-            const review = `${{ steps.ai_review.outputs.review }}`;
+            const review = process.env.AI_REVIEW || "Описание не получено.";
             const body = `## 🤖 AI-анализ изменений\n\n${review}\n\n---\n*Сгенерировано автоматически с помощью Claude (Anthropic)*`;
 
             await github.rest.issues.createComment({
