@@ -7,6 +7,10 @@ from app.models.apartment import Apartment
 from app.schemas.booking import BookingCreate
 
 
+class BookingConflictError(Exception):
+    """Поднимается, когда даты бронирования пересекаются с другой активной бронью."""
+
+
 def check_availability(
     db: Session, apartment_id: int, check_in: date, check_out: date,
     exclude_booking_id: Optional[int] = None,
@@ -37,6 +41,18 @@ def create_booking(db: Session, data: BookingCreate, tenant_id: int) -> Booking:
         status=BookingStatus.pending,
     )
     db.add(booking)
+    db.flush()  # получаем id, не коммитя — для повторной проверки в той же транзакции
+
+    # TOCTOU-mitigation: между check_availability в endpoint и этим INSERT
+    # параллельный запрос мог успеть вставить пересекающуюся бронь.
+    # Перепроверяем уже после своего flush, исключая собственную запись.
+    if not check_availability(
+        db, data.apartment_id, data.check_in, data.check_out,
+        exclude_booking_id=booking.id,
+    ):
+        db.rollback()
+        raise BookingConflictError("Квартира недоступна на выбранные даты")
+
     db.commit()
     db.refresh(booking)
     return booking

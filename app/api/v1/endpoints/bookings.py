@@ -9,7 +9,7 @@ from app.models.user import User, UserRole
 from app.schemas.booking import BookingCreate, BookingRead, BookingStatusUpdate
 from app.services.apartment_service import get_apartment
 from app.services.booking_service import (
-    check_availability, create_booking, get_booking,
+    BookingConflictError, check_availability, create_booking, get_booking,
     get_user_bookings, update_booking_status,
 )
 
@@ -28,7 +28,10 @@ def create(
         raise HTTPException(status_code=404, detail="Объявление не найдено")
     if not check_availability(db, data.apartment_id, data.check_in, data.check_out):
         raise HTTPException(status_code=409, detail="Квартира недоступна на выбранные даты")
-    return create_booking(db, data, tenant_id=current_user.id)
+    try:
+        return create_booking(db, data, tenant_id=current_user.id)
+    except BookingConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.get("/my", response_model=List[BookingRead])
