@@ -76,7 +76,7 @@ def login_submit(
         })
     token = create_access_token(data={"sub": str(user.id)})
     resp = RedirectResponse("/", status_code=302)
-    resp.set_cookie(COOKIE_NAME, token, httponly=True, max_age=3600 * 24)
+    resp.set_cookie(COOKIE_NAME, token, httponly=True, samesite="lax", max_age=3600 * 24)
     return resp
 
 
@@ -114,7 +114,7 @@ def register_submit(
         })
     token = create_access_token(data={"sub": str(user.id)})
     resp = RedirectResponse("/", status_code=302)
-    resp.set_cookie(COOKIE_NAME, token, httponly=True, max_age=3600 * 24)
+    resp.set_cookie(COOKIE_NAME, token, httponly=True, samesite="lax", max_age=3600 * 24)
     return resp
 
 
