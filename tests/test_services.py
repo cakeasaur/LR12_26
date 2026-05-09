@@ -55,7 +55,7 @@ class TestUserService:
     def test_create_user(self, db):
         user = create_user(db, UserCreate(
             email="u@test.com", password="pass1234",
-            full_name="User", role=UserRole.tenant,
+            full_name="User",
         ))
         assert user.id is not None
         assert user.email == "u@test.com"

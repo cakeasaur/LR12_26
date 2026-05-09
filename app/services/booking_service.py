@@ -6,6 +6,13 @@ from app.models.booking import Booking, BookingStatus
 from app.models.apartment import Apartment
 from app.schemas.booking import BookingCreate
 
+_VALID_TRANSITIONS: dict[BookingStatus, set[BookingStatus]] = {
+    BookingStatus.pending:   {BookingStatus.confirmed, BookingStatus.cancelled},
+    BookingStatus.confirmed: {BookingStatus.completed, BookingStatus.cancelled},
+    BookingStatus.completed: set(),
+    BookingStatus.cancelled: set(),
+}
+
 
 class BookingConflictError(Exception):
     """Поднимается, когда даты бронирования пересекаются с другой активной бронью."""
@@ -29,6 +36,8 @@ def check_availability(
 
 def create_booking(db: Session, data: BookingCreate, tenant_id: int) -> Booking:
     apartment = db.query(Apartment).filter(Apartment.id == data.apartment_id).first()
+    if not apartment:
+        raise ValueError(f"Квартира {data.apartment_id} не найдена")
     nights = (data.check_out - data.check_in).days
     total_price = apartment.price_per_night * nights
 
@@ -73,6 +82,11 @@ def get_apartment_bookings(db: Session, apartment_id: int) -> List[Booking]:
 def update_booking_status(
     db: Session, booking: Booking, status: BookingStatus
 ) -> Booking:
+    allowed = _VALID_TRANSITIONS.get(booking.status, set())
+    if status not in allowed:
+        raise ValueError(
+            f"Переход {booking.status.value!r} → {status.value!r} недопустим"
+        )
     booking.status = status
     db.commit()
     db.refresh(booking)

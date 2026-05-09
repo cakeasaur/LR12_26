@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -28,7 +28,13 @@ def get_current_user_from_cookie(request: Request, db: Session = Depends(get_db)
     payload = decode_access_token(token)
     if not payload:
         return None
-    return user_service.get_user_by_id(db, user_id=int(payload.get("sub")))
+    sub = payload.get("sub")
+    if not sub:
+        return None
+    user = user_service.get_user_by_id(db, user_id=int(sub))
+    if not user or not user.is_active:
+        return None
+    return user
 
 
 # ---------- Главная ----------
@@ -94,7 +100,6 @@ def register_submit(
     email: str = Form(...),
     password: str = Form(...),
     phone: Optional[str] = Form(None),
-    role: str = Form("tenant"),
     db: Session = Depends(get_db),
 ):
     if user_service.get_user_by_email(db, email):
@@ -105,7 +110,7 @@ def register_submit(
     try:
         data = UserCreate(
             email=email, password=password, full_name=full_name,
-            phone=phone or None, role=UserRole(role),
+            phone=phone or None,
         )
         user = user_service.create_user(db, data)
     except Exception as e:
@@ -279,8 +284,10 @@ def create_review_web(
     try:
         data = ReviewCreate(apartment_id=apartment_id, rating=rating, comment=comment)
         review_service.create_review(db, data, author_id=user.id)
+    except ValueError:
+        pass  # валидационная ошибка — тихий редирект (дубликат отзыва и т.п.)
     except Exception:
-        pass
+        raise HTTPException(status_code=500, detail="Ошибка при сохранении отзыва")
     return RedirectResponse(f"/apartments/{apartment_id}", status_code=302)
 
 
@@ -333,8 +340,9 @@ def cancel_booking(
     if not user:
         return RedirectResponse("/login", status_code=302)
     booking = booking_service.get_booking(db, booking_id)
-    if booking and booking.tenant_id == user.id:
-        booking_service.update_booking_status(db, booking, BookingStatus.cancelled)
+    if not booking or booking.tenant_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    booking_service.update_booking_status(db, booking, BookingStatus.cancelled)
     return RedirectResponse("/profile", status_code=302)
 
 
@@ -347,10 +355,12 @@ def confirm_booking(
     if not user:
         return RedirectResponse("/login", status_code=302)
     booking = booking_service.get_booking(db, booking_id)
-    if booking:
-        apt = apartment_service.get_apartment(db, booking.apartment_id)
-        if apt and apt.owner_id == user.id:
-            booking_service.update_booking_status(db, booking, BookingStatus.confirmed)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Бронирование не найдено")
+    apt = apartment_service.get_apartment(db, booking.apartment_id)
+    if not apt or apt.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    booking_service.update_booking_status(db, booking, BookingStatus.confirmed)
     return RedirectResponse("/profile", status_code=302)
 
 
@@ -363,10 +373,12 @@ def complete_booking(
     if not user:
         return RedirectResponse("/login", status_code=302)
     booking = booking_service.get_booking(db, booking_id)
-    if booking:
-        apt = apartment_service.get_apartment(db, booking.apartment_id)
-        if apt and apt.owner_id == user.id:
-            booking_service.update_booking_status(db, booking, BookingStatus.completed)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Бронирование не найдено")
+    apt = apartment_service.get_apartment(db, booking.apartment_id)
+    if not apt or apt.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    booking_service.update_booking_status(db, booking, BookingStatus.completed)
     return RedirectResponse("/profile", status_code=302)
 
 
@@ -379,10 +391,12 @@ def cancel_booking_landlord(
     if not user:
         return RedirectResponse("/login", status_code=302)
     booking = booking_service.get_booking(db, booking_id)
-    if booking:
-        apt = apartment_service.get_apartment(db, booking.apartment_id)
-        if apt and apt.owner_id == user.id:
-            booking_service.update_booking_status(db, booking, BookingStatus.cancelled)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Бронирование не найдено")
+    apt = apartment_service.get_apartment(db, booking.apartment_id)
+    if not apt or apt.owner_id != user.id:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    booking_service.update_booking_status(db, booking, BookingStatus.cancelled)
     return RedirectResponse("/profile", status_code=302)
 
 
@@ -410,10 +424,16 @@ def profile(
             for b in raw:
                 b.apt_title = apt_titles.get(b.apartment_id, f"№{b.apartment_id}")
             incoming_bookings = raw
-    paid_booking_ids = {
-        b.id for b in bookings
-        if payment_service.get_payment_by_booking(db, b.id)
-    }
+    from app.models.payment import Payment
+    booking_ids = [b.id for b in bookings]
+    paid_booking_ids: set[int] = set()
+    if booking_ids:
+        paid_booking_ids = {
+            row.booking_id
+            for row in db.query(Payment.booking_id).filter(
+                Payment.booking_id.in_(booking_ids)
+            ).all()
+        }
     return templates.TemplateResponse(request, "profile.html", {
         "user": user,
         "bookings": bookings,

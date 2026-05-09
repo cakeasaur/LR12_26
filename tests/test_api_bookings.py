@@ -110,6 +110,9 @@ class TestUpdateBookingStatus:
         assert r.json()["status"] == "confirmed"
 
     def test_landlord_can_complete(self, client, landlord_token, booking):
+        client.patch(f"/api/v1/bookings/{booking.id}/status",
+                     json={"status": "confirmed"},
+                     headers={"Authorization": f"Bearer {landlord_token}"})
         r = client.patch(f"/api/v1/bookings/{booking.id}/status",
                          json={"status": "completed"},
                          headers={"Authorization": f"Bearer {landlord_token}"})

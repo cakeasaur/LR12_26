@@ -72,7 +72,6 @@ def tenant(db):
         email="tenant@test.com",
         password="password123",
         full_name="Test Tenant",
-        role=UserRole.tenant,
     ))
 
 
@@ -82,8 +81,7 @@ def landlord(db):
         email="landlord@test.com",
         password="password123",
         full_name="Test Landlord",
-        role=UserRole.landlord,
-    ))
+    ), role=UserRole.landlord)
 
 
 @pytest.fixture
@@ -92,8 +90,7 @@ def admin(db):
         email="admin@test.com",
         password="password123",
         full_name="Test Admin",
-        role=UserRole.admin,
-    ))
+    ), role=UserRole.admin)
 
 
 # ── Токены ───────────────────────────────────────────────────────────────────
@@ -163,4 +160,5 @@ def completed_booking(db, apartment, tenant):
         check_in=tomorrow,
         check_out=day_after,
     ), tenant_id=tenant.id)
+    b = update_booking_status(db, b, BookingStatus.confirmed)
     return update_booking_status(db, b, BookingStatus.completed)

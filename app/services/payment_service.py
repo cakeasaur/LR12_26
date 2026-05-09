@@ -25,6 +25,10 @@ def get_payment_by_booking(db: Session, booking_id: int) -> Optional[Payment]:
 
 def release_payment(db: Session, payment: Payment) -> Payment:
     """Перевести деньги арендодателю после завершения аренды."""
+    if payment.status != PaymentStatus.held:
+        raise ValueError(
+            f"Невозможно перевести платёж со статусом '{payment.status.value}'"
+        )
     payment.status = PaymentStatus.released
     db.commit()
     db.refresh(payment)
@@ -33,6 +37,10 @@ def release_payment(db: Session, payment: Payment) -> Payment:
 
 def refund_payment(db: Session, payment: Payment) -> Payment:
     """Вернуть деньги арендатору при отмене."""
+    if payment.status != PaymentStatus.held:
+        raise ValueError(
+            f"Невозможно вернуть платёж со статусом '{payment.status.value}'"
+        )
     payment.status = PaymentStatus.refunded
     db.commit()
     db.refresh(payment)

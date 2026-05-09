@@ -8,7 +8,6 @@ class TestRegister:
             "email": "new@test.com",
             "password": "password123",
             "full_name": "New User",
-            "role": "tenant",
         })
         assert r.status_code == 201
         data = r.json()
@@ -42,15 +41,16 @@ class TestRegister:
         })
         assert r.status_code == 422
 
-    def test_register_landlord(self, client):
+    def test_register_role_cannot_be_set_by_client(self, client):
+        """Переданная роль игнорируется — пользователь всегда создаётся как tenant."""
         r = client.post("/api/v1/auth/register", json={
-            "email": "landlord2@test.com",
+            "email": "attacker@test.com",
             "password": "password123",
-            "full_name": "Landlord",
-            "role": "landlord",
+            "full_name": "Attacker",
+            "role": "admin",
         })
         assert r.status_code == 201
-        assert r.json()["role"] == "landlord"
+        assert r.json()["role"] == "tenant"
 
 
 class TestLogin:

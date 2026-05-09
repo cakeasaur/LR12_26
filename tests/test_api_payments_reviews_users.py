@@ -67,6 +67,7 @@ class TestPayments:
         assert r.status_code == 404
 
     def test_release_payment_as_landlord(self, client, db, landlord_token, booking):
+        update_booking_status(db, booking, BookingStatus.confirmed)
         create_payment(db, PaymentCreate(booking_id=booking.id), amount=booking.total_price)
         r = client.post(f"/api/v1/payments/{booking.id}/release",
                         headers={"Authorization": f"Bearer {landlord_token}"})

@@ -1,6 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel, EmailStr, field_validator
-from app.models.user import UserRole
+from app.models.user import UserRole  # needed for UserRead.role
 
 
 class UserCreate(BaseModel):
@@ -8,7 +8,6 @@ class UserCreate(BaseModel):
     password: str
     full_name: str
     phone: Optional[str] = None
-    role: UserRole = UserRole.tenant
 
     @field_validator("password")
     @classmethod
