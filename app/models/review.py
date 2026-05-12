@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, Text
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Integer, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -15,6 +15,7 @@ class Review(Base):
 
     __table_args__ = (
         CheckConstraint("rating >= 1 AND rating <= 5", name="check_rating_range"),
+        UniqueConstraint("author_id", "apartment_id", name="uq_review_author_apartment"),
     )
 
     apartment = relationship("Apartment", back_populates="reviews")
