@@ -71,8 +71,8 @@ def get_booking(db: Session, booking_id: int) -> Optional[Booking]:
     return db.query(Booking).filter(Booking.id == booking_id).first()
 
 
-def get_user_bookings(db: Session, tenant_id: int) -> List[Booking]:
-    return db.query(Booking).filter(Booking.tenant_id == tenant_id).all()
+def get_user_bookings(db: Session, tenant_id: int, skip: int = 0, limit: int = 20) -> List[Booking]:
+    return db.query(Booking).filter(Booking.tenant_id == tenant_id).offset(skip).limit(limit).all()
 
 
 def get_apartment_bookings(db: Session, apartment_id: int) -> List[Booking]:

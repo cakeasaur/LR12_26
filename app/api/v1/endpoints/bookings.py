@@ -1,5 +1,5 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
@@ -36,11 +36,13 @@ def create(
 
 @router.get("/my", response_model=List[BookingRead])
 def my_bookings(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> List[BookingRead]:
-    """Список бронирований текущего пользователя."""
-    return get_user_bookings(db, tenant_id=current_user.id)
+    """Список бронирований текущего пользователя (с пагинацией)."""
+    return get_user_bookings(db, tenant_id=current_user.id, skip=skip, limit=limit)
 
 
 @router.get("/{booking_id}", response_model=BookingRead)

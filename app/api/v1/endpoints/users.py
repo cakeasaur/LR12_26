@@ -1,12 +1,12 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user, require_admin
 from app.db.base import get_db
-from app.models.user import User
-from app.schemas.user import UserRead, UserUpdate
+from app.models.user import User, UserRole
+from app.schemas.user import UserRead, UserUpdate, UserCreate
 from app.services.user_service import get_user_by_id
 from app.core.security import get_password_hash, verify_password
 
@@ -50,6 +50,30 @@ def change_password(
     current_user.hashed_password = get_password_hash(data.new_password)
     db.commit()
     return {"message": "Пароль успешно изменен"}
+
+
+@router.post("/admin/create", response_model=UserRead)
+def admin_create_user(
+    data: UserCreate,
+    role: str = Query("tenant", pattern="^(tenant|landlord|admin)$"),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_admin),
+) -> User:
+    """Создать пользователя с произвольной ролью (только для администратора)."""
+    existing = db.query(User).filter(User.email == data.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email уже зарегистрирован")
+    user = User(
+        email=data.email,
+        hashed_password=get_password_hash(data.password),
+        full_name=data.full_name,
+        phone=data.phone,
+        role=UserRole(role),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 @router.get("/", response_model=List[UserRead])
