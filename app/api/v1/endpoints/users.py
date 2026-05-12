@@ -78,11 +78,13 @@ def admin_create_user(
 
 @router.get("/", response_model=List[UserRead])
 def list_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> List[UserRead]:
     """Список всех пользователей (только для администратора)."""
-    return db.query(User).all()
+    return db.query(User).offset(skip).limit(limit).all()
 
 
 @router.delete("/{user_id}", status_code=204)
