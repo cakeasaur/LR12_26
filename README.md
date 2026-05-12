@@ -88,6 +88,6 @@ python -m pytest tests/ --cov=app --cov-config=.coveragerc --cov-report=term-mis
 | 1 | Веб-приложение (FastAPI + Jinja2 UI) | ✅ | — |
 | 2 | Code review (5 найденных и исправленных багов) | ✅ | `docs/code_review.md` |
 | 3 | Настройка локальной LLM (Ollama + qwen3.5:27b) | ✅ | `docs/llm_comparison.md` |
-| 4 | CI/CD GitHub Actions (AI-анализ PR) | ✅ | `.github/workflows/ai-pr-review.yml` |
+| 4 | CI/CD GitHub Actions (AI-анализ PR) | ✅ | `docs/task4_ci_cd.md` |
 | 6 | Сравнение 3 или более ИИ-моделей (Claude, GPT-4, Qwen) | ✅ | `docs/model_comparison_task6.md` |
 | 7 | Unit-тесты, покрытие ≥ 90% | ✅ | `docs/testing_report.md` |
