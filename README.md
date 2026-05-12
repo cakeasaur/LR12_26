@@ -12,7 +12,7 @@
 
 ## Стек технологий
 
-- **Backend:** Python 3.14, FastAPI, SQLAlchemy, SQLite
+- **Backend:** Python 3.12, FastAPI, SQLAlchemy, SQLite
 - **Frontend:** Jinja2, Bootstrap 5
 - **Auth:** JWT (python-jose), bcrypt
 - **Тесты:** pytest, coverage.py

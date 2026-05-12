@@ -65,13 +65,14 @@ def release(
     booking = get_booking(db, booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="Бронирование не найдено")
+    if booking.status != BookingStatus.completed:
+        raise HTTPException(status_code=400, detail="Бронирование не завершено")
     apt = get_apartment(db, booking.apartment_id)
     if not apt or (apt.owner_id != current_user.id and current_user.role != UserRole.admin):
         raise HTTPException(status_code=403, detail="Нет доступа")
     payment = get_payment_by_booking(db, booking_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Платёж не найден")
-    update_booking_status(db, booking, BookingStatus.completed)
     return release_payment(db, payment)
 
 
