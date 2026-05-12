@@ -81,6 +81,7 @@ class TestPayments:
         assert r.status_code == 404
 
     def test_release_payment_not_found(self, client, db, landlord_token, booking):
+        update_booking_status(db, booking, BookingStatus.confirmed)
         update_booking_status(db, booking, BookingStatus.completed)
         r = client.post(f"/api/v1/payments/{booking.id}/release",
                         headers={"Authorization": f"Bearer {landlord_token}"})
@@ -88,6 +89,7 @@ class TestPayments:
 
     def test_release_payment_forbidden(self, client, db, tenant_token, booking):
         create_payment(db, PaymentCreate(booking_id=booking.id), amount=booking.total_price)
+        update_booking_status(db, booking, BookingStatus.confirmed)
         update_booking_status(db, booking, BookingStatus.completed)
         r = client.post(f"/api/v1/payments/{booking.id}/release",
                         headers={"Authorization": f"Bearer {tenant_token}"})
