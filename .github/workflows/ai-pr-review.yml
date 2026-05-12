@@ -36,7 +36,7 @@ jobs:
             echo "DIFF_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Запросить описание у Claude
+      - name: Запросить описание у Claude или показать инструкцию
         id: ai_review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -45,27 +45,41 @@ jobs:
           DIFF_STAT: ${{ steps.diff.outputs.stat }}
           FULL_DIFF: ${{ steps.diff.outputs.full }}
         run: |
-          PAYLOAD=$(jq -n \
-            --arg title  "$PR_TITLE" \
-            --arg author "$PR_AUTHOR" \
-            --arg stat   "$DIFF_STAT" \
-            --arg diff   "$FULL_DIFF" \
-            '{
-              model: "claude-3-5-haiku-20241022",
-              max_tokens: 1024,
-              messages: [{
-                role: "user",
-                content: ("Проанализируй следующий Pull Request и напиши краткое описание изменений на русском языке.\n\nНазвание PR: " + $title + "\nАвтор: " + $author + "\n\nСтатистика изменений:\n" + $stat + "\n\nДифф (первые 12000 символов):\n```\n" + $diff + "\n```\n\nНапиши:\n1. Краткое резюме (1-2 предложения) — что делает этот PR\n2. Список ключевых изменений (bullet points)\n3. Потенциальные риски или на что стоит обратить внимание при ревью (если есть)\n\nБудь конкретным и лаконичным. Отвечай только на русском.")
-              }]
-            }')
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            PAYLOAD=$(jq -n \
+              --arg title  "$PR_TITLE" \
+              --arg author "$PR_AUTHOR" \
+              --arg stat   "$DIFF_STAT" \
+              --arg diff   "$FULL_DIFF" \
+              '{
+                model: "claude-3-5-haiku-20241022",
+                max_tokens: 1024,
+                messages: [{
+                  role: "user",
+                  content: ("Проанализируй следующий Pull Request и напиши краткое описание изменений на русском языке.\n\nНазвание PR: " + $title + "\nАвтор: " + $author + "\n\nСтатистика изменений:\n" + $stat + "\n\nДифф (первые 12000 символов):\n```\n" + $diff + "\n```\n\nНапиши:\n1. Краткое резюме (1-2 предложения) — что делает этот PR\n2. Список ключевых изменений (bullet points)\n3. Потенциальные риски (если есть)\n\nБудь конкретным и лаконичным. На русском.")
+                }]
+              }')
 
-          RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d "$PAYLOAD")
+            RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+              -H "x-api-key: $ANTHROPIC_API_KEY" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "content-type: application/json" \
+              -d "$PAYLOAD")
 
-          AI_TEXT=$(echo "$RESPONSE" | jq -r '.content[0].text // "Не удалось получить описание от AI."')
+            AI_TEXT=$(echo "$RESPONSE" | jq -r '.content[0].text // "Ошибка получения описания от Claude."')
+          else
+            AI_TEXT=$(cat << 'INSTRUCTION'
+⚠️ **ANTHROPIC_API_KEY не установлен**
+
+Workflow готов, требуется конфигурация для работы:
+
+1. Облачное решение: добавь ANTHROPIC_API_KEY в Settings → Secrets → Actions
+2. Локальное: установи Ollama и запусти `ollama run qwen3.5`
+
+После настройки workflow будет анализировать PR автоматически.
+INSTRUCTION
+)
+          fi
 
           {
             echo "review<<REVIEW_EOF"
@@ -80,7 +94,7 @@ jobs:
         with:
           script: |
             const review = process.env.AI_REVIEW || "Описание не получено.";
-            const body = `## 🤖 AI-анализ изменений\n\n${review}\n\n---\n*Сгенерировано автоматически с помощью Claude (Anthropic)*`;
+            const body = `## 🤖 AI-анализ изменений\n\n${review}\n\n---\n*Сгенерировано автоматически через GitHub Actions*`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
