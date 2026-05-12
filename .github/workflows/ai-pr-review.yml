@@ -36,49 +36,59 @@ jobs:
             echo "DIFF_EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Запросить описание у Claude или показать инструкцию
+      - name: Запросить описание у AI или показать инструкцию
         id: ai_review
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           DIFF_STAT: ${{ steps.diff.outputs.stat }}
           FULL_DIFF: ${{ steps.diff.outputs.full }}
         run: |
-          if [ -n "$ANTHROPIC_API_KEY" ]; then
+          BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
+          BASE_URL="${BASE_URL%/}"
+          MODEL="${OPENAI_MODEL:-gpt-4o-mini}"
+
+          if [ -n "$OPENAI_API_KEY" ]; then
             PAYLOAD=$(jq -n \
+              --arg model  "$MODEL" \
               --arg title  "$PR_TITLE" \
               --arg author "$PR_AUTHOR" \
               --arg stat   "$DIFF_STAT" \
               --arg diff   "$FULL_DIFF" \
               '{
-                model: "claude-3-5-haiku-20241022",
+                model: $model,
                 max_tokens: 1024,
                 messages: [{
                   role: "user",
-                  content: ("Проанализируй следующий Pull Request и напиши краткое описание изменений на русском языке.\n\nНазвание PR: " + $title + "\nАвтор: " + $author + "\n\nСтатистика изменений:\n" + $stat + "\n\nДифф (первые 12000 символов):\n```\n" + $diff + "\n```\n\nНапиши:\n1. Краткое резюме (1-2 предложения) — что делает этот PR\n2. Список ключевых изменений (bullet points)\n3. Потенциальные риски (если есть)\n\nБудь конкретным и лаконичным. На русском.")
+                  content: ("Напиши release notes на русском для следующих изменений кода.\n\nНазвание: " + $title + "\nАвтор: " + $author + "\n\nФайлы:\n" + $stat + "\n\nDiff (первые 12000 символов):\n```\n" + $diff + "\n```\n\nФормат ответа:\n1. Краткое резюме (1-2 предложения) — что делает этот PR\n2. Ключевые изменения (bullet points)\n3. Потенциальные риски (если есть)\n\nБудь конкретным и лаконичным.")
                 }]
               }')
 
-            RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-              -H "x-api-key: $ANTHROPIC_API_KEY" \
-              -H "anthropic-version: 2023-06-01" \
-              -H "content-type: application/json" \
+            RESPONSE=$(curl -s "${BASE_URL}/chat/completions" \
+              -H "Authorization: Bearer ${OPENAI_API_KEY}" \
+              -H "Content-Type: application/json" \
               -d "$PAYLOAD")
 
-            AI_TEXT=$(echo "$RESPONSE" | jq -r '.content[0].text // "Ошибка получения описания от Claude."')
+            # Шлюз vibecode-claude иногда добавляет префикс "I can't discuss that." — срезаем.
+            AI_TEXT=$(echo "$RESPONSE" \
+              | jq -r '.choices[0].message.content // .error.message // "Ошибка получения описания от AI."' \
+              | sed -E "s/^I can'?t discuss that\.[[:space:]]*//; /./,\$!d")
           else
-            AI_TEXT=$(cat << 'INSTRUCTION'
-⚠️ **ANTHROPIC_API_KEY не установлен**
-
-Workflow готов, требуется конфигурация для работы:
-
-1. Облачное решение: добавь ANTHROPIC_API_KEY в Settings → Secrets → Actions
-2. Локальное: установи Ollama и запусти `ollama run qwen3.5`
-
-После настройки workflow будет анализировать PR автоматически.
-INSTRUCTION
-)
+            AI_TEXT=$(printf '%s\n' \
+              '⚠️ **OPENAI_API_KEY не установлен**' \
+              '' \
+              'Workflow готов, требуется конфигурация:' \
+              '' \
+              '1. Settings → Secrets and variables → Actions → New repository secret:' \
+              '   - `OPENAI_API_KEY` — ключ API' \
+              '   - `OPENAI_BASE_URL` — (опционально) базовый URL OpenAI-совместимого шлюза, по умолчанию `https://api.openai.com/v1`' \
+              '2. Settings → Secrets and variables → Actions → Variables → New variable:' \
+              '   - `OPENAI_MODEL` — имя модели, по умолчанию `gpt-4o-mini`' \
+              '' \
+              'После настройки workflow будет анализировать PR автоматически.')
           fi
 
           {
