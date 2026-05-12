@@ -91,3 +91,4 @@ python -m pytest tests/ --cov=app --cov-config=.coveragerc --cov-report=term-mis
 | 4 | CI/CD GitHub Actions (AI-анализ PR) | ✅ | `.github/workflows/ai-pr-review.yml` |
 | 6 | Сравнение 3 или более ИИ-моделей (Claude, GPT-4, Qwen) | ✅ | `docs/model_comparison_task6.md` |
 | 7 | Unit-тесты, покрытие ≥ 90% | ✅ | `docs/testing_report.md` |
+
